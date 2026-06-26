@@ -1,0 +1,196 @@
+classDiagram
+    class BackupDriverInterface {
+        <<interface>>
+        +connect(config: array): void
+        +getTables(ignoreTables: array): array
+        +exportCreateTable(table: string): string
+        +exportData(table: string, offset: int, chunkSize: int): string
+        +importSql(sql: string): void
+        +importFile(filePath: string): void
+        +disableForeignKeys(): void
+        +enableForeignKeys(): void
+        +backupTable(table: string, tempFile: string): void
+        +restoreTable(table: string, backupFile: string): void
+        +getDriverName(): string
+        +getMysqlVersion(): string
+    }
+
+    class BackupManager {
+        -config: array
+        -driver: BackupDriverInterface
+        -storage: StorageManager
+        -driverInitialized: bool
+        +__construct(config: array)
+        +resolveDriver(): BackupDriverInterface
+        +setDriver(driver: BackupDriverInterface): void
+        +getDriver(): BackupDriverInterface
+        +backup(options: array): string
+        +restore(file: string, options: array): bool
+        +clean(): int
+        +migrate(source: string, options: array): string
+        -getDatabaseConfig(connection: string): array
+        -createPdoDriver(dbConfig: array): PdoDriver
+        -cleanupTempDir(dir: string): void
+    }
+
+    class MysqldumpDriver {
+        -binaryPath: string
+        -dbConfig: array
+        -mysqlVersion: string
+        -pdo: ?PDO
+        +__construct(dbConfig: array)
+        +detectMysqldump(): string
+        +connect(config: array): void
+        +buildCommand(action: string, params: array): string
+        +getTables(ignoreTables: array): array
+        +exportCreateTable(table: string): string
+        +exportData(table: string, offset: int, chunkSize: int): string
+        +importSql(sql: string): void
+        +importFile(filePath: string): void
+        +disableForeignKeys(): void
+        +enableForeignKeys(): void
+        +backupTable(table: string, tempFile: string): void
+        +restoreTable(table: string, backupFile: string): void
+        +getDriverName(): string
+        +getMysqlVersion(): string
+    }
+
+    class PdoDriver {
+        -pdo: ?PDO
+        -mysqlVersion: string
+        -dbConfig: array
+        +__construct(dbConfig: array)
+        +connect(config: array): void
+        +getTables(ignoreTables: array): array
+        +exportCreateTable(table: string): string
+        +exportData(table: string, offset: int, chunkSize: int): string
+        +importSql(sql: string): void
+        +importFile(filePath: string): void
+        +disableForeignKeys(): void
+        +enableForeignKeys(): void
+        +backupTable(table: string, tempFile: string): void
+        +restoreTable(table: string, backupFile: string): void
+        +getDriverName(): string
+        +getMysqlVersion(): string
+    }
+
+    class Compressor {
+        <<static>>
+        +compress(files: array, output: string, level: int): string
+        +extract(zipFile: string, targetDir: string): array
+        +verify(zipFile: string): bool
+    }
+
+    class SqlSplitter {
+        <<static>>
+        +split(sql: string): array
+        +splitByTable(sqlContent: string): array
+    }
+
+    class StorageManager {
+        -filesystems: array~string,Filesystem~
+        +__construct(disksConfig: array)
+        +disk(name: string): Filesystem
+        +allDisks(): array
+        +put(disk: string, path: string, content: string): void
+        +read(disk: string, path: string): string
+        +delete(disk: string, path: string): void
+        +exists(disk: string, path: string): bool
+        +listContents(disk: string, directory: string, recursive: bool): array
+        +copyToAll(localPath: string, remotePath: string): array
+    }
+
+    class AdapterFactory {
+        <<static>>
+        +create(config: array): Filesystem
+        -createLocalAdapter(config: array): Filesystem
+        -createSftpAdapter(config: array): Filesystem
+        -createS3Adapter(config: array): Filesystem
+        -createFtpAdapter(config: array): Filesystem
+    }
+
+    class CleanupEngine {
+        -storage: StorageManager
+        -retention: array
+        +__construct(storage: StorageManager, retention: array)
+        +execute(diskNames: array): int
+        +classifyByDate(files: array): array
+        +getRetentionCutoffs(): array
+        +markExpired(classified: array, cutoffs: array): array
+        -parseTimestamp(datePart: string, timePart: string): int
+    }
+
+    class BackupException {
+        +__construct(message: string, code: int, previous: ?Throwable)
+    }
+
+    class RestoreException {
+    }
+
+    class CleanupException {
+    }
+
+    class RemoteTransferException {
+    }
+
+    class BeforeBackup {
+        +tables: array
+        +destination: string
+    }
+
+    class AfterBackup {
+        +zipFile: string
+        +tables: array
+        +duration: float
+    }
+
+    class BeforeRestore {
+        +backupFile: string
+        +dropTables: bool
+    }
+
+    class AfterRestore {
+        +backupFile: string
+        +tablesRestored: array
+        +duration: float
+    }
+
+    class BeforeClean {
+        +disks: array
+        +retention: array
+    }
+
+    class AfterClean {
+        +deletedCount: int
+        +deletedFiles: array
+    }
+
+    class AfterTableBackup {
+        +table: string
+        +tempFile: string
+        +rowsExported: int
+    }
+
+    class Facade {
+        -getFacadeClass(): string
+    }
+
+    class Service {
+        +register(): void
+        +boot(): void
+    }
+
+    BackupDriverInterface <|.. MysqldumpDriver : implements
+    BackupDriverInterface <|.. PdoDriver : implements
+    BackupManager --> BackupDriverInterface : uses
+    BackupManager --> StorageManager : uses
+    BackupManager --> Compressor : uses
+    BackupManager --> CleanupEngine : creates
+    CleanupEngine --> StorageManager : uses
+    StorageManager --> AdapterFactory : uses
+    PdoDriver --> SqlSplitter : uses
+    BackupException <|-- RestoreException : extends
+    BackupException <|-- CleanupException : extends
+    BackupException <|-- RemoteTransferException : extends
+    Facade --> BackupManager : proxies
+    Service --> BackupManager : registers

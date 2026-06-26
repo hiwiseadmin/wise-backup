@@ -1,0 +1,31 @@
+{
+    "name": "wiseadmin/wise-backup",
+    "description": "ThinkPHP 8 数据库备份与恢复扩展包 — 一键备份、多地容灾、自动清理",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "topthink/framework": "^6.0 || ^8.0",
+        "league/flysystem": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "suggest": {
+        "league/flysystem-sftp-v3": "启用 SFTP 远程备份存储 (^3.0)",
+        "league/flysystem-aws-s3-v3": "启用 S3/阿里云OSS/腾讯云COS 远程备份存储 (^3.0)",
+        "league/flysystem-ftp": "启用 FTP 远程备份存储 (^3.0)"
+    },
+    "autoload": {
+        "psr-4": {
+            "wise\\backup\\": "src/"
+        }
+    },
+    "extra": {
+        "think": {
+            "services": ["wise\\backup\\Service"]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
