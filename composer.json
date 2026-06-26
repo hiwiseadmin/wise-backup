@@ -1,6 +1,6 @@
 {
     "name": "wiseadmin/wise-backup",
-    "description": "ThinkPHP 8 数据库备份与恢复扩展包 — 一键备份、多地容灾、自动清理",
+    "description": "WiseAdmin 数据库备份与恢复包 — 一键备份、多地容灾、自动清理，支持本地/FTP/SFTP/S3 多种存储驱动",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -23,9 +23,31 @@
     },
     "extra": {
         "think": {
-            "services": ["wise\\backup\\Service"]
+            "services": [
+                "wise\\backup\\Service"
+            ]
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "homepage": "https://github.com/hiwiseadmin/wise-backup",
+    "authors": [
+        {
+            "name": "WiseAdmin Team",
+            "email": "wiseadmin@126.com"
+        }
+    ],
+    "archive": {
+        "exclude": [
+            "/tests",
+            "/docs",
+            "/.github",
+            "/phpunit.xml",
+            "/.gitattributes",
+            "/.gitignore",
+            "/*.md",
+            "!/README.md",
+            "/qa/"
+        ]
+    }
 }
