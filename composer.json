@@ -1,8 +1,15 @@
 {
     "name": "wiseadmin/wise-backup",
     "description": "WiseAdmin 数据库备份与恢复包 — 一键备份、多地容灾、自动清理，支持本地/FTP/SFTP/S3 多种存储驱动",
+    "homepage": "https://github.com/hiwiseadmin/wise-backup",
     "type": "library",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "WiseAdmin Team",
+            "email": "wiseadmin@126.com"
+        }
+    ],
     "require": {
         "php": "^8.1",
         "topthink/framework": "^6.0 || ^8.0",
@@ -21,6 +28,8 @@
             "wise\\backup\\": "src/"
         }
     },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
     "extra": {
         "think": {
             "services": [
@@ -28,15 +37,6 @@
             ]
         }
     },
-    "minimum-stability": "stable",
-    "prefer-stable": true,
-    "homepage": "https://github.com/hiwiseadmin/wise-backup",
-    "authors": [
-        {
-            "name": "WiseAdmin Team",
-            "email": "wiseadmin@126.com"
-        }
-    ],
     "archive": {
         "exclude": [
             "/tests",
