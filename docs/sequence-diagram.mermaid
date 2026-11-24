@@ -1,0 +1,121 @@
+sequenceDiagram
+    participant CLI as CLI/User
+    participant BM as BackupManager
+    participant Driver as MysqldumpDriver/PdoDriver
+    participant Comp as Compressor
+    participant SM as StorageManager
+    participant FS as Flysystem
+    participant Event as Event System
+    participant DB as Database
+
+    Note over CLI,DB: === 备份流程 (backup) ===
+
+    CLI->>BM: backup(options)
+    BM->>BM: resolveDriver()
+    
+    alt mysqldump available
+        BM->>Driver: new MysqldumpDriver(dbConfig)
+        Driver->>Driver: detectMysqldump()
+        Driver->>DB: connect (PDO)
+        DB-->>Driver: connected
+    else fallback
+        BM->>Driver: new PdoDriver(dbConfig)
+        Driver->>DB: connect (PDO)
+    end
+
+    Driver->>DB: SHOW TABLES
+    DB-->>Driver: table list
+    Driver-->>BM: filtered tables
+
+    BM->>Event: trigger(BeforeBackup)
+    BM->>Driver: disableForeignKeys()
+    Driver->>DB: SET FOREIGN_KEY_CHECKS=0
+
+    BM->>BM: create tmpDir
+
+    loop for each table
+        BM->>Driver: exportCreateTable(table)
+        Driver->>DB: SHOW CREATE TABLE / mysqldump --no-data
+        DB-->>Driver: CREATE TABLE SQL
+        
+        loop chunked export
+            BM->>Driver: exportData(table, offset, chunkSize)
+            Driver->>DB: SELECT ... LIMIT / mysqldump --where
+            DB-->>Driver: INSERT SQL chunk
+        end
+        
+        BM->>BM: write temp .sql file
+        BM->>Event: trigger(AfterTableBackup)
+    end
+
+    BM->>Driver: enableForeignKeys()
+    Driver->>DB: SET FOREIGN_KEY_CHECKS=1
+
+    BM->>Comp: compress(tempFiles, outputPath, level)
+    Comp->>Comp: ZipArchive::addFile() × N
+    Comp-->>BM: zipFilePath
+
+    loop for each remote disk
+        BM->>SM: copyToAll(zipPath, filename)
+        SM->>SM: file_get_contents(zipPath)
+        SM->>FS: write(remotePath, content)
+    end
+
+    BM->>Event: trigger(AfterBackup)
+    BM-->>CLI: zipFilePath
+
+    Note over CLI,DB: === 还原流程 (restore) ===
+
+    CLI->>BM: restore(file, options)
+
+    alt remote protocol (sftp://, s3://, ftp://)
+        BM->>SM: read(protocol, remotePath)
+        SM->>FS: read(path)
+        FS-->>SM: content
+        SM-->>BM: content
+        BM->>BM: write local temp file
+    end
+
+    BM->>Event: trigger(BeforeRestore)
+    BM->>Comp: extract(zipFile, extractDir)
+    Comp-->>BM: extracted .sql files
+
+    BM->>Driver: resolveDriver()
+    BM->>Driver: disableForeignKeys()
+
+    opt dropTables
+        loop each table
+            BM->>Driver: importSql("DROP TABLE IF EXISTS")
+        end
+    end
+
+    loop each .sql file
+        opt force mode
+            BM->>Driver: backupTable(table, bakFile)
+        end
+        BM->>Driver: importFile(sqlFile)
+        Driver->>DB: execute SQL statements
+    end
+
+    BM->>Driver: enableForeignKeys()
+    BM->>Event: trigger(AfterRestore)
+    BM->>BM: cleanupTempDir(extractDir)
+    BM-->>CLI: true
+
+    Note over CLI,DB: === 清理流程 (clean) ===
+
+    CLI->>BM: clean()
+    BM->>SM: allDisks()
+    
+    loop each disk
+        BM->>SM: listContents(disk)
+        SM-->>BM: file listing
+        BM->>BM: classifyByDate(files)
+        BM->>BM: markExpired(classified, cutoffs)
+        loop each expired file
+            BM->>SM: delete(disk, path)
+            SM->>FS: delete(path)
+        end
+    end
+    
+    BM-->>CLI: deletedCount
